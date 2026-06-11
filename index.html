@@ -390,8 +390,6 @@
 
 </div>
 <script>
-const GEMINI_API_KEY = 'AIzaSyCkkfo_DoRFK1B8_szZJjkz7-MMd7l7eIA'; // ← 把你的 key 填在这里
-
 const FIELDS = [
   { key:'name',     label:'full name',   icon:'person'   },
   { key:'title',    label:'job title',   icon:'briefcase'},
@@ -480,8 +478,8 @@ function setScanLoading(yes) {
 }
 
 async function scanCard() {
-  const apiKey = GEMINI_API_KEY || document.getElementById('api-key').value.trim();
-  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') { setAlert('enter your Gemini API key first', 'err'); return; }
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { setAlert('enter your Gemini API key first', 'err'); return; }
   if (!imgBase64) { setAlert('take a photo first', 'err'); return; }
   clearAlert();
   setScanLoading(true);
@@ -536,7 +534,12 @@ Return ONLY the JSON object. No markdown, no explanation, no backticks.`;
     }
 
     let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    raw = raw.replace(/```json|```/g, '').trim();
+
+    // robust JSON extraction: strip markdown fences, then find first {...} block
+    raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new SyntaxError('no JSON found in response');
+    raw = jsonMatch[0];
 
     contactData = JSON.parse(raw);
     renderResult();
@@ -547,7 +550,7 @@ Return ONLY the JSON object. No markdown, no explanation, no backticks.`;
 
   } catch (err) {
     if (err instanceof SyntaxError) {
-      setAlert('could not parse the response — try again with a clearer photo', 'err');
+      setAlert('parsing failed: ' + err.message, 'err');
     } else {
       setAlert('network error: ' + err.message, 'err');
     }
