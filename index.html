@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Card Scanner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #fff5f7;
+    --surface:   #ffffff;
+    --border:    #f0d6dc;
+    --border-md: #e0b0bc;
+    --text:      #1a1218;
+    --text-2:    #7a5a62;
+    --text-3:    #b899a0;
+    --accent:    #c2185b;
+    --accent-bg: #fce4ec;
+    --danger:    #b71c1c;
+    --danger-bg: #fdf0ee;
+    --warn:      #9a6700;
+    --warn-bg:   #fef9ec;
+    --radius:    12px;
+    --radius-sm: 8px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #1a1118;
+      --surface:   #241520;
+      --border:    #3d2030;
+      --border-md: #5c3048;
+      --text:      #f5e6ec;
+      --text-2:    #c0909a;
+      --text-3:    #7a5060;
+      --accent:    #f06292;
+      --accent-bg: #3d1028;
+      --danger:    #e57373;
+      --danger-bg: #2a1010;
+      --warn:      #f0c060;
+      --warn-bg:   #2a2000;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100svh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.75rem;
+  }
+  .header-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .header-icon svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .header p { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+
+  /* Section */
+  .section { margin-bottom: 1rem; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 0.5rem;
+    padding-left: 2px;
+  }
+
+  /* Card surface */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-pad { padding: 1rem 1.125rem; }
+
+  /* API key row */
+  .key-row { display: flex; gap: 8px; align-items: center; }
+  .key-input {
+    flex: 1;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .key-input:focus { border-color: var(--accent); }
+  .key-input::placeholder { color: var(--text-3); font-family: -apple-system, sans-serif; }
+  .key-toggle {
+    font-size: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+  }
+  .key-toggle:hover { background: var(--bg); }
+  .key-hint { font-size: 11px; color: var(--text-3); margin-top: 8px; }
+  .key-hint a { color: var(--accent); text-decoration: none; }
+
+  /* Upload zone */
+  .upload-zone {
+    position: relative;
+    border: 1.5px dashed var(--border-md);
+    border-radius: var(--radius);
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    background: var(--bg);
+  }
+  .upload-zone:hover { background: var(--surface); border-color: var(--accent); }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon {
+    width: 44px; height: 44px;
+    margin: 0 auto 0.75rem;
+    background: var(--accent-bg);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-icon svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .upload-main { font-size: 14px; font-weight: 500; color: var(--text); }
+  .upload-sub  { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+
+  /* Preview */
+  #preview-wrap { display: none; }
+  #preview-img {
+    width: 100%; display: block;
+    max-height: 200px; object-fit: cover;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .reshot-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; margin-top: 10px;
+    font-size: 13px; color: var(--text-2);
+    background: transparent; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .reshot-btn:hover { background: var(--bg); }
+  .reshot-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Scan button */
+  .scan-btn {
+    width: 100%; padding: 13px;
+    font-size: 15px; font-weight: 600;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: -0.01em;
+  }
+  .scan-btn:hover:not(:disabled) { opacity: 0.88; }
+  .scan-btn:active:not(:disabled) { transform: scale(0.98); }
+  .scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .scan-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Alert */
+  .alert {
+    display: none;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-top: 0.75rem;
+    line-height: 1.5;
+  }
+  .alert.err { background: var(--danger-bg); color: var(--danger); display: block; }
+  .alert.warn { background: var(--warn-bg); color: var(--warn); display: block; }
+
+  /* Result section */
+  #result-section { display: none; }
+
+  /* Confidence badge */
+  .conf-badge {
+    display: inline-block;
+    font-size: 11px; font-weight: 500;
+    padding: 2px 9px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .conf-high   { background: var(--accent-bg); color: var(--accent); }
+  .conf-medium { background: var(--warn-bg);   color: var(--warn); }
+  .conf-low    { background: var(--danger-bg); color: var(--danger); }
+
+  /* Field list */
+  .field-list { list-style: none; }
+  .field-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-item:last-child { border-bottom: none; }
+  .field-ico {
+    width: 30px; height: 30px; flex-shrink: 0;
+    background: var(--bg);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .field-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .field-body { flex: 1; min-width: 0; }
+  .field-lbl { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+  .field-inp {
+    width: 100%;
+    font-size: 14px;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    padding: 0 0 1px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .field-inp:focus { border-bottom-color: var(--accent); }
+  .field-inp::placeholder { color: var(--text-3); font-style: italic; font-size: 13px; }
+
+  /* Section header inside card */
+  .result-header {
+    display: flex; align-items: center;
+    padding: 0.875rem 1.125rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-header-ico {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--accent-bg);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 10px; flex-shrink: 0;
+  }
+  .result-header-ico svg { width: 20px; height: 20px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .result-name { font-size: 15px; font-weight: 600; }
+  .result-company { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+  /* Download button */
+  .dl-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px;
+    font-size: 14px; font-weight: 600;
+    border-radius: var(--radius);
+    border: 2px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 0.12s;
+    letter-spacing: -0.01em;
+  }
+  .dl-btn:hover { background: var(--accent-bg); }
+  .dl-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .dl-hint { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 8px; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 0.125rem 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 2v3M8 2v3M2 10h20"/></svg>
+    </div>
+    <div>
+      <h1>Card Scanner</h1>
+      <p>snap a business card → save to contacts</p>
+    </div>
+  </div>
+
+  <!-- Step 1: API Key -->
+  <div class="section">
+    <div class="section-label">Gemini API Key</div>
+    <div class="card card-pad">
+      <div class="key-row">
+        <input class="key-input" type="password" id="api-key" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+        <button class="key-toggle" id="key-toggle" onclick="toggleKey()">show</button>
+      </div>
+      <p class="key-hint">get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a></p>
+    </div>
+  </div>
+
+  <!-- Step 2: Photo -->
+  <div class="section">
+    <div class="section-label">Business Card</div>
+
+    <div id="upload-zone-wrap">
+      <div class="upload-zone">
+        <input type="file" accept="image/*" capture="environment" id="file-input" onchange="onFile(event)" />
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <p class="upload-main">tap to take photo</p>
+        <p class="upload-sub">or choose from camera roll · JPG, PNG, HEIC</p>
+      </div>
+    </div>
+
+    <div id="preview-wrap">
+      <img id="preview-img" alt="business card preview" />
+      <button class="reshot-btn" onclick="resetPhoto()">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>
+        use a different photo
+      </button>
+    </div>
+  </div>
+
+  <!-- Scan Button -->
+  <div class="section">
+    <button class="scan-btn" id="scan-btn" onclick="scanCard()" disabled>
+      <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      scan card
+    </button>
+    <div id="scan-alert" class="alert"></div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-section">
+    <div class="section-label">
+      Contact Info
+      <span class="conf-badge" id="conf-badge"></span>
+    </div>
+    <div class="card">
+      <div class="result-header" id="result-header">
+        <div class="result-header-ico">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <div class="result-name" id="rh-name">—</div>
+          <div class="result-company" id="rh-company"></div>
+        </div>
+      </div>
+      <div class="card-pad">
+        <ul class="field-list" id="fields-list"></ul>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top: 1rem;">
+      <button class="dl-btn" onclick="downloadVCF()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        save to contacts (.vcf)
+      </button>
+      <p class="dl-hint">open the downloaded file to add to iPhone / Android / macOS</p>
+    </div>
+  </div>
+
+</div>
+<script>
+const FIELDS = [
+  { key:'name',     label:'full name',   icon:'person'   },
+  { key:'title',    label:'job title',   icon:'briefcase'},
+  { key:'company',  label:'company',     icon:'building' },
+  { key:'phone',    label:'phone',       icon:'phone'    },
+  { key:'mobile',   label:'mobile',      icon:'mobile'   },
+  { key:'email',    label:'email',       icon:'mail'     },
+  { key:'website',  label:'website',     icon:'globe'    },
+  { key:'address',  label:'address',     icon:'pin'      },
+  { key:'linkedin', label:'linkedin',    icon:'linkedin' },
+  { key:'wechat',   label:'wechat',      icon:'chat'     },
+];
+
+const ICONS = {
+  person:   '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  briefcase:'<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>',
+  building: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>',
+  phone:    '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38a2 2 0 0 1 2-2.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9a16 16 0 0 0 6 6l.77-.77a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  mobile:   '<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+  mail:     '<svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+  globe:    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  pin:      '<svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  linkedin: '<svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>',
+  chat:     '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+};
+
+let imgBase64 = null;
+let imgMime = 'image/jpeg';
+let contactData = {};
+
+function toggleKey() {
+  const inp = document.getElementById('api-key');
+  const btn = document.getElementById('key-toggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'hide'; }
+  else { inp.type = 'password'; btn.textContent = 'show'; }
+}
+
+function onFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  imgMime = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    imgBase64 = dataUrl.split(',')[1];
+    document.getElementById('preview-img').src = dataUrl;
+    document.getElementById('upload-zone-wrap').style.display = 'none';
+    document.getElementById('preview-wrap').style.display = 'block';
+    document.getElementById('scan-btn').disabled = false;
+    clearAlert();
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetPhoto() {
+  imgBase64 = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-img').src = '';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('upload-zone-wrap').style.display = 'block';
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('result-section').style.display = 'none';
+  clearAlert();
+}
+
+function setAlert(msg, type) {
+  const el = document.getElementById('scan-alert');
+  el.textContent = msg;
+  el.className = 'alert ' + type;
+}
+function clearAlert() {
+  const el = document.getElementById('scan-alert');
+  el.className = 'alert';
+  el.textContent = '';
+}
+
+function setScanLoading(yes) {
+  const btn = document.getElementById('scan-btn');
+  if (yes) {
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> scanning...';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg> scan again';
+  }
+}
+
+async function scanCard() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { setAlert('enter your Gemini API key first', 'err'); return; }
+  if (!imgBase64) { setAlert('take a photo first', 'err'); return; }
+  clearAlert();
+  setScanLoading(true);
+
+  const prompt = `You are a business card OCR expert. Extract all contact information from this business card image.
+Return ONLY a valid JSON object with exactly these fields (empty string if not found):
+{
+  "name": "",
+  "title": "",
+  "company": "",
+  "phone": "",
+  "mobile": "",
+  "email": "",
+  "website": "",
+  "address": "",
+  "linkedin": "",
+  "wechat": "",
+  "confidence": "high"
+}
+Rules:
+- name: full name as printed
+- phone: office/desk phone, mobile: cell/mobile number (if only one number exists, put it in mobile)
+- website: full URL if present
+- linkedin: URL or handle
+- wechat: WeChat ID if present
+- confidence: "high" if image is clear, "medium" if some fields uncertain, "low" if image is poor quality
+Return ONLY the JSON object. No markdown, no explanation, no backticks.`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: imgMime, data: imgBase64 } },
+            { text: prompt }
+          ]}],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
+        })
+      }
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      const msg = data?.error?.message || ('API error ' + resp.status);
+      setAlert(msg, 'err');
+      setScanLoading(false);
+      return;
+    }
+
+    let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    raw = raw.replace(/```json|```/g, '').trim();
+
+    contactData = JSON.parse(raw);
+    renderResult();
+    document.getElementById('result-section').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      setAlert('could not parse the response — try again with a clearer photo', 'err');
+    } else {
+      setAlert('network error: ' + err.message, 'err');
+    }
+  }
+
+  setScanLoading(false);
+}
+
+function renderResult() {
+  const conf = (contactData.confidence || 'medium').toLowerCase();
+  const badge = document.getElementById('conf-badge');
+  badge.textContent = conf + ' confidence';
+  badge.className = 'conf-badge conf-' + conf;
+
+  document.getElementById('rh-name').textContent    = contactData.name    || '—';
+  document.getElementById('rh-company').textContent = [contactData.title, contactData.company].filter(Boolean).join(' · ');
+
+  const list = document.getElementById('fields-list');
+  list.innerHTML = '';
+  FIELDS.forEach(f => {
+    const val = contactData[f.key] || '';
+    const li = document.createElement('li');
+    li.className = 'field-item';
+    li.innerHTML = `
+      <div class="field-ico" aria-hidden="true">${ICONS[f.icon]}</div>
+      <div class="field-body">
+        <div class="field-lbl">${f.label}</div>
+        <input class="field-inp" type="text" id="fi-${f.key}" value="${esc(val)}" placeholder="not found" />
+      </div>`;
+    list.appendChild(li);
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fv(key) {
+  const el = document.getElementById('fi-' + key);
+  return el ? el.value.trim() : '';
+}
+
+function downloadVCF() {
+  const name = fv('name');
+  const parts = name.trim().split(/\s+/);
+  const last  = parts.length > 1 ? parts[parts.length - 1] : name;
+  const first = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
+
+  let v = 'BEGIN:VCARD\r\nVERSION:3.0\r\n';
+  v += `N:${last};${first};;;\r\n`;
+  v += `FN:${name}\r\n`;
+  if (fv('company'))  v += `ORG:${fv('company')}\r\n`;
+  if (fv('title'))    v += `TITLE:${fv('title')}\r\n`;
+  if (fv('phone'))    v += `TEL;TYPE=WORK,VOICE:${fv('phone')}\r\n`;
+  if (fv('mobile'))   v += `TEL;TYPE=CELL:${fv('mobile')}\r\n`;
+  if (fv('email'))    v += `EMAIL;TYPE=WORK:${fv('email')}\r\n`;
+  if (fv('website'))  v += `URL:${fv('website')}\r\n`;
+  if (fv('address'))  v += `ADR;TYPE=WORK:;;${fv('address')};;;;\r\n`;
+  if (fv('linkedin')) v += `X-SOCIALPROFILE;TYPE=linkedin:${fv('linkedin')}\r\n`;
+  if (fv('wechat'))   v += `X-SOCIALPROFILE;TYPE=wechat:${fv('wechat')}\r\n`;
+  v += `NOTE:Scanned with Card Scanner\r\n`;
+  v += 'END:VCARD\r\n';
+
+  const blob = new Blob([v], { type: 'text/vcard;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (name || 'contact').replace(/\s+/g, '_') + '.vcf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
